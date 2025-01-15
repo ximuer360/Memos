@@ -24,7 +24,11 @@
     </div>
     <div class="preview" v-if="uploadedFiles.length">
       <div v-for="file in uploadedFiles" :key="file.url" class="preview-item">
-        <img :src="file.url" :alt="file.name">
+        <img 
+          :src="file.url" 
+          :alt="file.name"
+          @error="(e) => { console.error('Preview image load error:', e); }"
+        >
         <button class="remove-btn" @click="removeFile(file)">×</button>
       </div>
     </div>
@@ -48,14 +52,57 @@ const content = ref('')
 const error = ref('')
 const isSubmitting = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
-const uploadedFiles = ref<Array<{ url: string, name: string }>>([])
+const uploadedFiles = ref<Array<{ url: string, name: string, type: string, size: number }>>([])
 
 const emit = defineEmits<{
-  (e: 'create', content: string, files: Array<{ url: string, name: string }>): void
+  (e: 'create', content: string, resources: Array<{ url: string, name: string, type: string, size: number }>): void
 }>()
 
 const triggerFileInput = () => {
   fileInput.value?.click()
+}
+
+const handleFileUpload = async (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  try {
+    const response = await fetch('http://localhost:3000/api/resources', {
+      method: 'POST',
+      body: formData
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`)
+    }
+
+    const clonedResponse = response.clone()
+    
+    try {
+      const data = await response.json()
+      console.log('Upload response:', data)
+      
+      if (!data.url || !data.type || !data.name || !data.size) {
+        throw new Error('Invalid response data')
+      }
+      
+      uploadedFiles.value.push({
+        url: data.url,
+        name: data.name,
+        type: data.type,
+        size: data.size
+      })
+      error.value = ''
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError)
+      const text = await clonedResponse.text()
+      console.error('Response text:', text)
+      throw new Error('Invalid response format')
+    }
+  } catch (e) {
+    console.error('Upload error:', e)
+    error.value = '图片上传失败'
+  }
 }
 
 const handleFileChange = async (event: Event) => {
@@ -63,26 +110,7 @@ const handleFileChange = async (event: Event) => {
   if (!input.files?.length) return
 
   for (const file of Array.from(input.files)) {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      const response = await fetch('http://localhost:3000/api/resources', {
-        method: 'POST',
-        body: formData
-      })
-      
-      if (!response.ok) throw new Error('Upload failed')
-      
-      const data = await response.json()
-      uploadedFiles.value.push({
-        url: data.url,
-        name: data.name
-      })
-    } catch (e) {
-      console.error(e)
-      error.value = '图片上传失败'
-    }
+    await handleFileUpload(file)
   }
   
   input.value = ''
@@ -100,26 +128,7 @@ const handlePaste = async (event: ClipboardEvent) => {
     if (item.type.startsWith('image/')) {
       const file = item.getAsFile()
       if (file) {
-        const formData = new FormData()
-        formData.append('file', file)
-        
-        try {
-          const response = await fetch('http://localhost:3000/api/resources', {
-            method: 'POST',
-            body: formData
-          })
-          
-          if (!response.ok) throw new Error('Upload failed')
-          
-          const data = await response.json()
-          uploadedFiles.value.push({
-            url: data.url,
-            name: data.name
-          })
-        } catch (e) {
-          console.error(e)
-          error.value = '图片上传失败'
-        }
+        await handleFileUpload(file)
       }
     }
   }
@@ -132,12 +141,14 @@ const handleSubmit = async () => {
   error.value = ''
   
   try {
+    console.log('Submitting with resources:', uploadedFiles.value)
     await emit('create', content.value, uploadedFiles.value)
     content.value = ''
     uploadedFiles.value = []
+    error.value = ''
   } catch (e) {
-    error.value = '发布失败，请重试'
     console.error('Failed to create memo:', e)
+    error.value = '发布失败，请重试'
   } finally {
     isSubmitting.value = false
   }
@@ -200,20 +211,22 @@ textarea {
   position: relative;
   width: 100px;
   height: 100px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #eee;
 }
 
 .preview-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 4px;
 }
 
 .remove-btn {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  background: rgba(0,0,0,0.5);
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.5);
   color: white;
   border: none;
   border-radius: 50%;
@@ -223,6 +236,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
 }
 
 .actions {

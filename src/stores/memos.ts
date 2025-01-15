@@ -20,11 +20,11 @@ export const useMemoStore = () => {
     }
   }
 
-  const createMemo = async (content: string) => {
+  const createMemo = async (content: string, resources: Array<{ url: string, name: string, type: string, size: number }>) => {
     loading.value = true
     error.value = null
     try {
-      const newMemo = await memoApi.createMemo(content)
+      const newMemo = await memoApi.createMemo(content, resources)
       memos.value.unshift(newMemo)
     } catch (e) {
       console.error(e)
