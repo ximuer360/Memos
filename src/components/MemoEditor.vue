@@ -67,7 +67,7 @@ const handleFileUpload = async (file: File) => {
   formData.append('file', file)
   
   try {
-    const response = await fetch('http://localhost:3000/api/resources', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/resources`, {
       method: 'POST',
       body: formData
     })

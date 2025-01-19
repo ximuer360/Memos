@@ -1,13 +1,13 @@
 <template>
   <div class="memo-list">
     <div v-for="memo in memos" :key="memo._id" class="memo-item">
-      <div class="memo-content" v-html="memo.content.html"></div>
+      <div class="memo-content markdown-body" v-html="memo.content.html"></div>
       <div class="memo-resources" v-if="memo.resources?.length">
         <div v-for="resource in memo.resources" :key="resource.url" class="resource-item">
           <img v-if="resource.type.startsWith('image/')" 
                :src="resource.url" 
                :alt="resource.name"
-               @click="openImage(resource.url)"
+               @click="showImage(resource.url)"
                @error="handleImageError">
         </div>
       </div>
@@ -15,6 +15,7 @@
         <span class="memo-time">{{ formatDate(memo.createdAt) }}</span>
       </div>
     </div>
+    <ImageViewer ref="imageViewer" />
   </div>
 </template>
 
@@ -22,13 +23,16 @@
 import { ref } from 'vue'
 import type { Memo } from '../types/memo'
 import { formatDate } from '../utils/date'
+import ImageViewer from './ImageViewer.vue'
 
 defineProps<{
   memos: Memo[]
 }>()
 
-const openImage = (url: string) => {
-  window.open(url, '_blank')
+const imageViewer = ref<InstanceType<typeof ImageViewer> | null>(null)
+
+const showImage = (url: string) => {
+  imageViewer.value?.show(url)
 }
 
 const handleImageError = (e: Event) => {
@@ -65,25 +69,71 @@ const handleImageError = (e: Event) => {
   color: #888;
 }
 
-.memo-content :deep(pre) {
+/* Markdown 样式 */
+.markdown-body :deep(h1) {
+  font-size: 1.5em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.3em;
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+}
+
+.markdown-body :deep(p) {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+.markdown-body :deep(code) {
+  background: rgba(175, 184, 193, 0.2);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 0.85em;
+}
+
+.markdown-body :deep(pre) {
   background: #f6f8fa;
   padding: 16px;
   border-radius: 6px;
   overflow-x: auto;
+  margin: 1em 0;
 }
 
-.memo-content :deep(code) {
-  font-family: monospace;
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
 }
 
-.memo-content :deep(p) {
-  margin: 8px 0;
+.markdown-body :deep(a) {
+  color: #0366d6;
+  text-decoration: none;
 }
 
-.memo-content :deep(img) {
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-body :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: 4px;
+}
+
+.markdown-body :deep(ul), .markdown-body :deep(ol) {
+  padding-left: 2em;
+  margin: 0.5em 0;
+}
+
+.markdown-body :deep(li) {
+  margin: 0.3em 0;
 }
 
 .memo-resources {
@@ -99,7 +149,7 @@ const handleImageError = (e: Event) => {
   height: 150px;
   border-radius: 4px;
   overflow: hidden;
-  cursor: pointer;
+  cursor: zoom-in;
 }
 
 .resource-item img {
@@ -111,5 +161,40 @@ const handleImageError = (e: Event) => {
 
 .resource-item img:hover {
   transform: scale(1.05);
+}
+
+/* 高亮代码块的行样式 */
+.markdown-body :deep(.hljs) {
+  display: block;
+  overflow-x: auto;
+  padding: 1em;
+  color: #24292e;
+  background: #f6f8fa;
+}
+
+.markdown-body :deep(.hljs-comment),
+.markdown-body :deep(.hljs-quote) {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.markdown-body :deep(.hljs-keyword),
+.markdown-body :deep(.hljs-selector-tag) {
+  color: #d73a49;
+}
+
+.markdown-body :deep(.hljs-string),
+.markdown-body :deep(.hljs-literal) {
+  color: #032f62;
+}
+
+.markdown-body :deep(.hljs-number),
+.markdown-body :deep(.hljs-variable),
+.markdown-body :deep(.hljs-template-variable) {
+  color: #005cc5;
+}
+
+.markdown-body :deep(.hljs-function) {
+  color: #6f42c1;
 }
 </style> 

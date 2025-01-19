@@ -11,6 +11,7 @@ import highlight from 'highlight.js'
 import sanitizeHtml from 'sanitize-html'
 import dotenv from 'dotenv'
 import { Memo } from './models/memo.js'
+import { networkInterfaces } from 'os'
 
 dotenv.config()
 
@@ -19,13 +20,20 @@ const app = express()
 
 // 配置 Markdown 渲染
 marked.setOptions({
-  highlight: (code, lang) => {
-    if (lang && highlight.getLanguage(lang)) {
-      return highlight.highlight(code, { language: lang }).value
+  highlight: (code, language) => {
+    if (language && highlight.getLanguage(language)) {
+      return highlight.highlight(code, {
+        language: language,
+        ignoreIllegals: true
+      }).value
     }
     return highlight.highlightAuto(code).value
   },
-  breaks: true
+  langPrefix: 'hljs language-',
+  breaks: true,
+  gfm: true,
+  headerIds: true,
+  mangle: false
 })
 
 // 连接 MongoDB
@@ -63,7 +71,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage })
 
 app.use(cors({
-  origin: 'http://localhost:5174',
+  origin: '*',
+  //origin: ['http://localhost:5174','http://192.168.101.6:5174','http://192.168.101.7:5174'],
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
   credentials: true
@@ -75,10 +84,30 @@ app.use('/uploads', express.static(uploadDir))
 function processContent(rawContent) {
   const html = marked(rawContent)
   const sanitized = sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+    allowedTags: [
+      ...sanitizeHtml.defaults.allowedTags,
+      'img',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'pre',
+      'code',
+      'span'
+    ],
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
-      img: ['src', 'alt']
+      img: ['src', 'alt'],
+      code: ['class'],
+      pre: ['class'],
+      span: ['class']
+    },
+    allowedClasses: {
+      code: ['*'],
+      pre: ['*'],
+      span: ['*']
     }
   })
   return {
@@ -113,16 +142,24 @@ app.post('/api/memos', async (req, res) => {
 
     const processedContent = processContent(content)
     
+    // 修改资源 URL
+    const serverUrl = process.env.SERVER_URL || `http://${getLocalIP()}:3000`
+    const processedResources = resources.map(resource => {
+      // 如果 URL 包含 localhost，替换为服务器 URL
+      const url = resource.url.replace('http://localhost:3000', serverUrl)
+      return {
+        type: resource.type,
+        name: resource.name,
+        url: url,
+        size: resource.size
+      }
+    })
+    
     const memo = new Memo({
       content: processedContent,
       userId: '1',
       visibility: 'PUBLIC',
-      resources: resources.map(resource => ({
-        type: resource.type,
-        name: resource.name,
-        url: resource.url,
-        size: resource.size
-      })),
+      resources: processedResources,
       tags: []
     })
     
@@ -146,8 +183,9 @@ app.post('/api/resources', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' })
     }
 
-    // 使用完整的 URL
-    const fileUrl = `http://localhost:3000/uploads/${file.filename}`
+    // 使用环境变量中的服务器 URL
+    const serverUrl = process.env.SERVER_URL || `http://${getLocalIP()}:3000`
+    const fileUrl = `${serverUrl}/uploads/${file.filename}`
     
     // 构造响应对象
     const response = {
@@ -180,7 +218,27 @@ app.use((err, req, res, next) => {
   })
 })
 
+// 获取本机 IP 地址
+const getLocalIP = () => {
+  const nets = networkInterfaces()
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      // 跳过内部 IP 和非 IPv4 地址
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address
+      }
+    }
+  }
+  return 'localhost'
+}
+
+// 在服务器启动时
+const IP = getLocalIP()
 const PORT = 3000
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
+process.env.SERVER_URL = process.env.SERVER_URL || `http://${IP}:${PORT}`
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on:`)
+  console.log(`- Local: http://localhost:${PORT}`)
+  console.log(`- Network: ${process.env.SERVER_URL}`)
 }) 
