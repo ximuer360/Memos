@@ -1,19 +1,20 @@
 <template>
-  <div class="app">
-    <header class="header">
-      <h1>Memos</h1>
-    </header>
-    <main>
-      <HomeView />
-    </main>
-  </div>
+  <router-view></router-view>
 </template>
 
 <script setup lang="ts">
-import HomeView from './views/HomeView.vue'
+// 组件逻辑
 </script>
 
 <style>
+:root {
+  --primary-color: #1890ff;
+  --error-color: #ff4d4f;
+  --text-color: #333;
+  --border-color: #d9d9d9;
+  --bg-color: #f5f5f5;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -23,8 +24,37 @@ import HomeView from './views/HomeView.vue'
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--primary-color) 80%, black);
+}
+
+.error-text {
+  color: var(--error-color);
 }
 
 .app {
